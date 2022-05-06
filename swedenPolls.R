@@ -31,6 +31,7 @@ df <- df[,cols_i_want]
 # drop missing values
 df <- na.omit(df)
 
+# I want to get weighted averages for each month
 # convert from percentages to decimal fractions
 party_cols <- seq(1,8)
 df[,party_cols] <- 0.01*df[,party_cols]
@@ -53,13 +54,13 @@ for (party in seq(2,9)){
 df <- df[, !(names(df) %in% "n")]
 
 # election dates
-elect_dates <- data.frame(date =c("2006-09-06",
+elect_dates <- data.frame(date = c("2006-09-06",
                                   "2010-09-19",
                                   "2014-09-14",
                                   "2018-09-09",
                                   "2022-09-11"))
 
-# plotting
+# plotting: monthly numbers
 monthly_plot <- ggplot(data = df, aes(date)) +
   geom_line(aes(y = M, color = "M")) +
   geom_line(aes(y = L, color = "L")) +
@@ -80,6 +81,8 @@ monthly_plot <- ggplot(data = df, aes(date)) +
                                 "MP" = "#83CF39",
                                 "SD" = "#DDDD00")) +
   geom_vline(data = elect_dates, aes(xintercept = as.Date(date)),linetype = 3)
+
+# plotting: bar chart of this month's status 
 
 # ------- MOVING AVERAGES -------
 window_size <- 3
@@ -115,17 +118,16 @@ MA_plot <- ggplot(data = df_MA, aes(date)) +
                                 "SD" = "#DDDD00"))
 
 # ------- TIME SERIES FORECASTING --------
-# ----
-# ----
+
 # create new data frame to combine actual and forecast polling numbers
 df2 <- df
-df2[(nrow(df2)+1):(nrow(df2)+10),] <- NA
+df2[(nrow(df2)+1):(nrow(df2)+5),] <- NA
 df2[(nrow(df)+1):nrow(df2),1] <- seq(as.Date(df[nrow(df),1]), # adding dates
-                                     length=11, by='1 month')[2:11]
+                                     length=6, by='1 month')[2:6]
 
 # using automatic arima selection from forecast package
 for (i in seq(2,9)){
-  df2[(nrow(df)+1):nrow(df2),i] <- as.numeric(forecast(auto.arima(df[,i]))$mean)
+  df2[(nrow(df)+1):nrow(df2),i] <- as.numeric(forecast(auto.arima(df[,i]), h = 5)$mean)
 }
 
 # ------- ALLOCATING SEATS --------
@@ -191,3 +193,13 @@ for (i in seq(n_seats)){
   fc_comp_index[i+1,fc_winner] <- fc_results[2,fc_winner]/
     (2*fc_results[3,fc_winner]+1) # update comparative index
 }
+
+# plot forecasts
+fcplot_M <- autoplot(forecast(auto.arima(df$M)))
+fcplot_L <- autoplot(forecast(auto.arima(df$L)))
+fcplot_C <- autoplot(forecast(auto.arima(df$C)))
+fcplot_KD <- autoplot(forecast(auto.arima(df$KD)))
+fcplot_S <- autoplot(forecast(auto.arima(df$S)))
+fcplot_V <- autoplot(forecast(auto.arima(df$V)))
+fcplot_MP <- autoplot(forecast(auto.arima(df$MP)))
+fcplot_SD <- autoplot(forecast(auto.arima(df$SD)))
