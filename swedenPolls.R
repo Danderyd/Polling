@@ -7,7 +7,7 @@ setwd(wd)
 
 # load necessary packages
 my_packages <- c("dplyr", "ggplot2", "lubridate", "tidyr",
-                 "SwedishPolls", "forecast")
+                 "SwedishPolls", "forecast", "zoo", "reshape2")
 
 for (i in 1:length(my_packages)){
   if(!require(my_packages[i], character.only = TRUE)){
@@ -61,7 +61,7 @@ elect_dates <- data.frame(date = c("2006-09-06",
                                   "2022-09-11"))
 
 # plotting: monthly numbers
-monthly_plot <- ggplot(data = df, aes(date)) +
+monthly_plot <- ggplot(df, aes(date)) +
   geom_line(aes(y = M, color = "M")) +
   geom_line(aes(y = L, color = "L")) +
   geom_line(aes(y = C, color = "C")) +
@@ -83,10 +83,26 @@ monthly_plot <- ggplot(data = df, aes(date)) +
   geom_vline(data = elect_dates, aes(xintercept = as.Date(date)),linetype = 3)
 
 # plotting: bar chart of this month's status 
+bar_chart <- df[nrow(df),] %>%
+  melt(id.vars = "date") %>%
+  ggplot(aes(x = variable, y = value, fill = variable)) +
+  geom_bar(stat = "identity") +
+  xlab("Parties") + ylab("% Support") +
+  scale_fill_manual(values = c("#52BDEC",
+                               "#006AB3",
+                               "#009933",
+                               "#000077",
+                               "#E8112d",
+                               "#DA291C",
+                               "#83CF39",
+                               "#DDDD00")) +
+  geom_hline(yintercept=4, linetype=3) +
+  theme(legend.position="none")
 
-# ------- MOVING AVERAGES -------
+# ------- MOVING AVERAGES PLOT -------
 window_size <- 3
-df_MA <- df %>%
+
+MA_plot <- df %>%
   mutate(M = rollmean(M, k = window_size, fill = NA, align = "right")) %>%
   mutate(L = rollmean(L, k = window_size, fill = NA, align = "right")) %>%
   mutate(C = rollmean(C, k = window_size, fill = NA, align = "right")) %>%
@@ -95,9 +111,8 @@ df_MA <- df %>%
   mutate(V = rollmean(V, k = window_size, fill = NA, align = "right")) %>%
   mutate(MP = rollmean(MP, k = window_size, fill = NA, align = "right")) %>%
   mutate(SD = rollmean(SD, k = window_size, fill = NA, align = "right")) %>%
-  drop_na()
-
-MA_plot <- ggplot(data = df_MA, aes(date)) +
+  drop_na() %>%
+  ggplot(aes(date)) +
   geom_line(aes(y = M, color = "M")) +
   geom_line(aes(y = L, color = "L")) +
   geom_line(aes(y = C, color = "C")) +
@@ -116,19 +131,6 @@ MA_plot <- ggplot(data = df_MA, aes(date)) +
                                 "V"= "#DA291C",
                                 "MP" = "#83CF39",
                                 "SD" = "#DDDD00"))
-
-# ------- TIME SERIES FORECASTING --------
-
-# create new data frame to combine actual and forecast polling numbers
-df2 <- df
-df2[(nrow(df2)+1):(nrow(df2)+5),] <- NA
-df2[(nrow(df)+1):nrow(df2),1] <- seq(as.Date(df[nrow(df),1]), # adding dates
-                                     length=6, by='1 month')[2:6]
-
-# using automatic arima selection from forecast package
-for (i in seq(2,9)){
-  df2[(nrow(df)+1):nrow(df2),i] <- as.numeric(forecast(auto.arima(df[,i]), h = 5)$mean)
-}
 
 # ------- ALLOCATING SEATS --------
 n_voters <- 6535271 # assume same as 2018
@@ -161,6 +163,22 @@ for (i in seq(n_seats)){
   results[3,winner] <- results[3,winner] + 1 # allocate new seat
   comp_index[i+1,winner] <- results[2,winner]/
     (2*results[3,winner]+1) # update comparative index
+}
+
+# ------- TIME SERIES FORECASTING --------
+
+# number of periods ahead to forecast
+h = 5
+
+# create new data frame to combine actual and forecast polling numbers
+df2 <- df # copy original df
+df2[(nrow(df2)+1):(nrow(df2)+h),] <- NA # add new rows for forecast numbers
+df2[(nrow(df)+1):nrow(df2),1] <- seq(as.Date(df[nrow(df),1]), # adding dates
+                                     length=h+1, by='1 month')[2:(h+1)]
+
+# using automatic arima selection from forecast package
+for (i in seq(2,9)){
+  df2[(nrow(df)+1):nrow(df2),i] <- as.numeric(forecast(auto.arima(df[,i]), h)$mean)
 }
 
 # using ARIMA forecast election results
@@ -203,3 +221,22 @@ fcplot_S <- autoplot(forecast(auto.arima(df$S)))
 fcplot_V <- autoplot(forecast(auto.arima(df$V)))
 fcplot_MP <- autoplot(forecast(auto.arima(df$MP)))
 fcplot_SD <- autoplot(forecast(auto.arima(df$SD)))
+
+# ------- ALLIANCE V. RED-GREENS V. SD --------
+df3 <- data.frame(matrix(NA, nrow(df), 4))
+colnames(df3) <- c("date", "Alliance", "Red-greens", "SD")
+df3$date <- df$date
+df3$Alliance <- df$M + df$L + df$C + df$KD
+df3$`Red-greens` <- df$S + df$V + df$MP
+df3$SD <- df$SD
+
+coalition_plot <- ggplot(df3, aes(date)) +
+  geom_line(aes(y = Alliance, color = "Alliance")) +
+  geom_line(aes(y = `Red-greens`, color = "Red-greens")) +
+  geom_line(aes(y = SD, color = "SD")) +
+  xlab("Date") + ylab("% Support") +
+  scale_color_manual(name = "Parties",
+                     values = c("Alliance" = "#52BDEC",
+                                "Red-greens" = "#E8112d",
+                                "SD" = "#DDDD00")) +
+  geom_vline(data = elect_dates, aes(xintercept = as.Date(date)),linetype = 3)
