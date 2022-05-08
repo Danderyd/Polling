@@ -15,6 +15,9 @@ for (i in 1:length(my_packages)){
   }
 }
 
+# set graphics theme
+th <- theme_light()
+
 # get polling data
 dirty_data <- SwedishPolls::get_polls()
 
@@ -80,7 +83,9 @@ monthly_plot <- ggplot(df, aes(date)) +
                                 "V"= "#DA291C",
                                 "MP" = "#83CF39",
                                 "SD" = "#DDDD00")) +
-  geom_vline(data = elect_dates, aes(xintercept = as.Date(date)),linetype = 3)
+  geom_vline(data = elect_dates, aes(xintercept = as.Date(date)),linetype = 3) +
+  theme_light() +
+  ggtitle("Party support over time")
 
 # plotting: bar chart of this month's status 
 bar_chart <- df[nrow(df),] %>%
@@ -97,7 +102,9 @@ bar_chart <- df[nrow(df),] %>%
                                "#83CF39",
                                "#DDDD00")) +
   geom_hline(yintercept=4, linetype=3) +
-  theme(legend.position="none")
+  theme(legend.position="none")  +
+  theme_light() +
+  ggtitle("Public opinion today")
 
 # ------- MOVING AVERAGES PLOT -------
 window_size <- 3
@@ -130,7 +137,9 @@ MA_plot <- df %>%
                                 "S" = "#E8112d",
                                 "V"= "#DA291C",
                                 "MP" = "#83CF39",
-                                "SD" = "#DDDD00"))
+                                "SD" = "#DDDD00")) +
+  theme_light() +
+  ggtitle("Moving average of party support")
 
 # ------- ALLOCATING SEATS --------
 n_voters <- 6535271 # assume same as 2018
@@ -176,12 +185,12 @@ df2[(nrow(df2)+1):(nrow(df2)+h),] <- NA # add new rows for forecast numbers
 df2[(nrow(df)+1):nrow(df2),1] <- seq(as.Date(df[nrow(df),1]), # adding dates
                                      length=h+1, by='1 month')[2:(h+1)]
 
-# using automatic arima selection from forecast package
+# using automatic ARIMA selection from forecast package
 for (i in seq(2,9)){
   df2[(nrow(df)+1):nrow(df2),i] <- as.numeric(forecast(auto.arima(df[,i]), h)$mean)
 }
 
-# using ARIMA forecast election results
+# using ARIMA forecast election results to forecast seat allocation
 fc_results <- df2 %>%
   filter(date == "2022-09-01") # get vector of forecast election results
 
@@ -212,7 +221,7 @@ for (i in seq(n_seats)){
     (2*fc_results[3,fc_winner]+1) # update comparative index
 }
 
-# plot forecasts
+# plot forecasts (with the default 10 years ahead)
 fcplot_M <- autoplot(forecast(auto.arima(df$M)))
 fcplot_L <- autoplot(forecast(auto.arima(df$L)))
 fcplot_C <- autoplot(forecast(auto.arima(df$C)))
@@ -235,8 +244,49 @@ coalition_plot <- ggplot(df3, aes(date)) +
   geom_line(aes(y = `Red-greens`, color = "Red-greens")) +
   geom_line(aes(y = SD, color = "SD")) +
   xlab("Date") + ylab("% Support") +
-  scale_color_manual(name = "Parties",
+  scale_color_manual(name = "Coalition",
                      values = c("Alliance" = "#52BDEC",
                                 "Red-greens" = "#E8112d",
                                 "SD" = "#DDDD00")) +
-  geom_vline(data = elect_dates, aes(xintercept = as.Date(date)),linetype = 3)
+  geom_vline(data = elect_dates, aes(xintercept = as.Date(date)),linetype = 3) +
+  theme_light() +
+  ggtitle("Support for traditional coalitions")
+
+# ------- RIGHT-WING VS. LEFT-WING --------
+df4 <- data.frame(matrix(NA, nrow(df), 4))
+colnames(df4) <- c("date", "Right", "Left")
+df4$date <- df$date
+df4$Right <- df$M + df$L + df$SD + df$KD
+df4$Left <- df$S + df$V + df$MP + df$C
+
+new_landscape_plot <- ggplot(df4, aes(date)) +
+  geom_line(aes(y = Right, color = "Right")) +
+  geom_line(aes(y = Left, color = "Left")) +
+  xlab("Date") + ylab("% Support") +
+  scale_color_manual(name = "Parties",
+                     values = c("Right" = "#000077",
+                                "Left" = "#E8112d")) +
+  geom_vline(data = elect_dates, aes(xintercept = as.Date(date)),linetype = 3) +
+  theme_light() +
+  ggtitle("Support for hypothetical new coalitions")
+
+# How many seats would these coalitions get if the election were today?
+right_seats <- 0
+left_seats <- 0
+
+right_parties <- c("M", "L", "KD", "SD")
+left_parties <- c("C", "S", "V", "MP")
+
+for (party in right_parties){
+  if (party %in% colnames(results)){
+    right_seats <- right_seats + results[3,party]
+  }
+}
+
+for (party in left_parties){
+  if (party %in% colnames(results)){
+    left_seats <- left_seats + results[3,party]
+  }
+}
+
+results[3,]
