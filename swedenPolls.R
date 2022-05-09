@@ -176,6 +176,23 @@ for (i in seq(n_seats)){
 
 # ------- TIME SERIES FORECASTING --------
 
+# Select lambdas for Box-Cox tests
+lambda <- data.frame(matrix(NA, 1, 8))
+colnames(lambda) <- colnames(df[2:9])
+for (i in seq(1,8)){
+  lambda[,i] <- BoxCox.lambda(df[,(i+1)])
+}
+
+# Plot Box-Cox 
+plot.ts(BoxCox(df$M, lambda$M))
+plot.ts(BoxCox(df$L, lambda$L))
+plot.ts(BoxCox(df$C, lambda$C))
+plot.ts(BoxCox(df$KD, lambda$KD))
+plot.ts(BoxCox(df$S, lambda$S))
+plot.ts(BoxCox(df$V, lambda$V))
+plot.ts(BoxCox(df$MP, lambda$MP))
+plot.ts(BoxCox(df$SD, lambda$SD))
+
 # number of periods ahead to forecast
 h = 5
 
@@ -231,15 +248,11 @@ fcplot_V <- autoplot(forecast(auto.arima(df$V)))
 fcplot_MP <- autoplot(forecast(auto.arima(df$MP)))
 fcplot_SD <- autoplot(forecast(auto.arima(df$SD)))
 
-# ------- ALLIANCE V. RED-GREENS V. SD --------
-df3 <- data.frame(matrix(NA, nrow(df), 4))
-colnames(df3) <- c("date", "Alliance", "Red-greens", "SD")
-df3$date <- df$date
-df3$Alliance <- df$M + df$L + df$C + df$KD
-df3$`Red-greens` <- df$S + df$V + df$MP
-df3$SD <- df$SD
+# ------- ALLIANCE VS. RED-GREENS VS. SD --------
+df$Alliance <- df$M + df$L + df$C + df$KD
+df$`Red-greens` <- df$S + df$V + df$MP
 
-coalition_plot <- ggplot(df3, aes(date)) +
+coalition_plot <- ggplot(df, aes(date)) +
   geom_line(aes(y = Alliance, color = "Alliance")) +
   geom_line(aes(y = `Red-greens`, color = "Red-greens")) +
   geom_line(aes(y = SD, color = "SD")) +
@@ -252,14 +265,11 @@ coalition_plot <- ggplot(df3, aes(date)) +
   theme_light() +
   ggtitle("Support for traditional coalitions")
 
-# ------- RIGHT-WING VS. LEFT-WING --------
-df4 <- data.frame(matrix(NA, nrow(df), 4))
-colnames(df4) <- c("date", "Right", "Left")
-df4$date <- df$date
-df4$Right <- df$M + df$L + df$SD + df$KD
-df4$Left <- df$S + df$V + df$MP + df$C
+# ------- RIGHT-WING VS. LEFT-WING (HYPOTHETICAL COALITIONS) --------
+df$Right <- df$M + df$L + df$SD + df$KD
+df$Left <- df$S + df$V + df$MP + df$C
 
-new_landscape_plot <- ggplot(df4, aes(date)) +
+new_landscape_plot <- ggplot(df, aes(date)) +
   geom_line(aes(y = Right, color = "Right")) +
   geom_line(aes(y = Left, color = "Left")) +
   xlab("Date") + ylab("% Support") +
