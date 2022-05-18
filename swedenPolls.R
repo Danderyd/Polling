@@ -15,9 +15,6 @@ for (i in 1:length(my_packages)){
   }
 }
 
-# set graphics theme
-th <- theme_light()
-
 # get polling data
 dirty_data <- SwedishPolls::get_polls()
 
@@ -83,7 +80,8 @@ monthly_plot <- ggplot(df, aes(date)) +
                                 "V"= "#DA291C",
                                 "MP" = "#83CF39",
                                 "SD" = "#DDDD00")) +
-  geom_vline(data = elect_dates, aes(xintercept = as.Date(date)),linetype = 3) +
+  geom_vline(data = elect_dates, aes(xintercept = as.Date(date)), linetype = 3) +
+  geom_hline(aes(yintercept = 4), linetype = 2) +
   theme_light() +
   ggtitle("Party support over time")
 
@@ -173,6 +171,7 @@ for (i in seq(n_seats)){
   comp_index[i+1,winner] <- results[2,winner]/
     (2*results[3,winner]+1) # update comparative index
 }
+rm(comp_index)
 
 # ------- TIME SERIES FORECASTING --------
 
@@ -192,6 +191,7 @@ plot.ts(BoxCox(df$S, lambda$S))
 plot.ts(BoxCox(df$V, lambda$V))
 plot.ts(BoxCox(df$MP, lambda$MP))
 plot.ts(BoxCox(df$SD, lambda$SD))
+rm(lambda)
 
 # number of periods ahead to forecast
 h = 5
@@ -237,6 +237,7 @@ for (i in seq(n_seats)){
   fc_comp_index[i+1,fc_winner] <- fc_results[2,fc_winner]/
     (2*fc_results[3,fc_winner]+1) # update comparative index
 }
+rm(fc_comp_index)
 
 # plot forecasts (with the default 10 years ahead)
 fcplot_M <- autoplot(forecast(auto.arima(df$M)))
@@ -300,3 +301,4 @@ for (party in left_parties){
 }
 
 results[3,]
+fc_results[3,]
